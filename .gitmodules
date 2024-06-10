@@ -1,0 +1,3 @@
+[submodule "lib/LDPC4QKD"]
+	path = lib/LDPC4QKD
+	url = https://github.com/XQP-Munich/LDPC4QKD.git
