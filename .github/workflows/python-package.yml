@@ -62,6 +62,8 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
+      with:
+        submodules: recursive
 
     - uses: actions/setup-python@v5
       with:
@@ -91,6 +93,8 @@ jobs:
           mingw-w64-x86_64-python-wheel
 
     - uses: actions/checkout@v4
+      with:
+        submodules: recursive
 
     - name: Install pybind11
       # This is required because --no-build-isolation disable dependences
