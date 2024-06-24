@@ -33,7 +33,7 @@ def test_small():
 
     qber = 1 / 7
     vlog = np.log((1 - qber) / qber)
-    llrs = np.array([vlog * (1 - 2 * noisy_bit) for noisy_bit in noisy_key], dtype=np.double)
+    llrs = np.array([vlog * (1. - 2. * noisy_bit) for noisy_bit in noisy_key], dtype=np.double)
 
     out = np.zeros(len(key), dtype=np.uint8)
     is_decoding_success: bool = code.decode_infer_rate(llrs, syndrome, out, 50, 100.)
