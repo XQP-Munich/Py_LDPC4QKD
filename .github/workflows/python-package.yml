@@ -1,0 +1,109 @@
+# Adapted from https://github.com/pybind/python_example/blob/master/.github/workflows/pip.yml
+
+# Copyright (c) 2016 The Pybind Development Team, All rights reserved.
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions are met:
+#
+# 1. Redistributions of source code must retain the above copyright notice, this
+#    list of conditions and the following disclaimer.
+#
+# 2. Redistributions in binary form must reproduce the above copyright notice,
+#    this list of conditions and the following disclaimer in the documentation
+#    and/or other materials provided with the distribution.
+#
+# 3. Neither the name of the copyright holder nor the names of its contributors
+#    may be used to endorse or promote products derived from this software
+#    without specific prior written permission.
+#
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+# ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+# WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+# DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+# FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+# DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+# SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+# CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+# OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+# OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+#
+# You are under no obligation whatsoever to provide any bug fixes, patches, or
+# upgrades to the features, functionality or performance of the source code
+# ("Enhancements") to anyone; however, if you choose to make your Enhancements
+# available either publicly, or directly to the author of this software, without
+# imposing a separate written license agreement for such Enhancements, then you
+# hereby grant the following license: a non-exclusive, royalty-free perpetual
+# license to install, use, modify, prepare derivative works, incorporate into
+# other computer software, distribute, and sublicense such enhancements or
+# derivative works thereof, in binary and source code form.
+
+name: Pip
+
+on:
+  workflow_dispatch:
+  pull_request:
+  push:
+    branches:
+      - master
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: [windows-latest, macos-13, ubuntu-latest]
+        python-version: ["3.7", "3.11"]
+
+    runs-on: ${{ matrix.platform }}
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - uses: actions/setup-python@v5
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - name: Add requirements
+      run: python -m pip install --upgrade wheel setuptools
+
+    - name: Build and install
+      run: pip install --verbose .
+
+    - name: Test
+      run: python examples/basic.py
+
+  build-mingw64:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+    - uses: msys2/setup-msys2@v2
+      with:
+        update: true
+        install: >-
+          mingw-w64-x86_64-gcc
+          mingw-w64-x86_64-python-pip
+          mingw-w64-x86_64-python-wheel
+
+    - uses: actions/checkout@v4
+
+    - name: Install pybind11
+      # This is required because --no-build-isolation disable dependences
+      # installation
+      run: pip install pybind11
+
+    - name: Build and install
+      # --no-build-isolation is required because the vanilla setuptool does not
+      # support Mingw64.See patches here:
+      # https://github.com/msys2/MINGW-packages/tree/master/mingw-w64-python-setuptools
+      # Without those patches build_ext fails with:
+      # error: --plat-name must be one of ('win32', 'win-amd64', 'win-arm32', 'win-arm64')
+      run: pip install --no-build-isolation .
+
+    - name: Test
+      run: python examples/basic.py
