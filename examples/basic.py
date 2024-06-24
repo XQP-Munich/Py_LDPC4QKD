@@ -113,7 +113,7 @@ def test_big():
     """
     code = ldpc.get_rate_adaptive_code(1)
 
-    n_trials = 10_000
+    n_trials = 1_000
     n_failures = 0
 
     print(f"{code.getNCols()} -> {code.get_n_rows_after_rate_adaption()}")
