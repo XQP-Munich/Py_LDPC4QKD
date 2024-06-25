@@ -140,9 +140,9 @@ def test_big():
         if not np.all(key == corrected_noisy_key):
             n_failures += 1
             if is_decoding_success:
-                warnings.warn("Reported decoding success despite incorrect result! (this should be very rare!)")
+                print("Reported decoding success despite incorrect result! (this should be very rare!)")
         elif not is_decoding_success:
-            warnings.warn("Reported decoding failure despite CORRECT RESULT. (This has to be a bug!)")
+            print("Reported decoding failure despite CORRECT RESULT. (This has to be a bug!)")
     print(f"\rSimulation done. Did {n_trials=} and {n_failures=} on BSC({true_target_qber:.2%}). "
           f"FER ~ {n_failures / n_trials:.2E}")
 
