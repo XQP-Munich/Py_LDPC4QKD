@@ -286,8 +286,8 @@ PYBIND11_MODULE(_core, m) {
         .def("getNCols", &RateAdaptiveCode<Idx>::getNCols)
         .def("get_max_ra_steps", &RateAdaptiveCode<Idx>::get_max_ra_steps);
 
-    m.def("get_input_size", &get_input_size, "Get input size of nth LDPC code");
-    m.def("get_output_size", &get_output_size, "Get output size of nth LDPC code");
+//    m.def("get_input_size", &get_input_size, "Get input size of nth LDPC code");
+//    m.def("get_output_size", &get_output_size, "Get output size of nth LDPC code");
     m.def("encode_with", &(encode_with<0, BitVec, BitVec>), "Compute syndrome using nth code");
     m.def("get_rate_adaptive_code", &get_rate_adaptive_code, "Get data specifying ldpc matrix");
 }
