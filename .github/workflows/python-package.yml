@@ -55,17 +55,17 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        platform: [windows-latest, macos-13, ubuntu-latest]
+        platform: [windows-latest, macos-latest, ubuntu-latest]
         python-version: ["3.8", "3.x"]
 
     runs-on: ${{ matrix.platform }}
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
       with:
         submodules: recursive
 
-    - uses: actions/setup-python@v5
+    - uses: actions/setup-python@v6
       with:
         python-version: ${{ matrix.python-version }}
 
@@ -92,15 +92,18 @@ jobs:
           mingw-w64-x86_64-python-pip
           mingw-w64-x86_64-python-wheel
 
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
       with:
         submodules: recursive
 
     - name: Install pybind11
-      # This is required because --no-build-isolation disable dependences
-      # installation
-      run: pip install pybind11 numpy
-
+      # This is required because --no-build-isolation disable dependencies installation
+      run: pip install pybind11
+      
+    - name: Install numpy
+      # This is required because --no-build-isolation disable dependencies installation
+      run: pip install numpy
+      
     - name: Build and install
       # --no-build-isolation is required because the vanilla setuptool does not
       # support Mingw64.See patches here:
