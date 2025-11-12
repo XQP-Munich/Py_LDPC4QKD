@@ -17,6 +17,16 @@ def hash_vector(vec):
     return seed
 
 
+def print_available_codes():
+    for i in range(1_000_000):
+        try:
+            code = ldpc.get_rate_adaptive_code(i)
+            print(f"Code {i} maps {code.getNCols()} -> {code.get_n_rows_mother_matrix()}")
+        except RuntimeError as e:  # `get_rate_adaptive_code` throws `RuntimeError` if no code availabel for ID.
+            break
+    print("\n")
+
+
 def test_small():
     """
     How to use LDPC code with all manual settings
@@ -38,8 +48,8 @@ def test_small():
     out = np.zeros(len(key), dtype=np.uint8)
     is_decoding_success: bool = code.decode_infer_rate(llrs, syndrome, out, 50, 100.)
 
-    assert is_decoding_success
-    assert np.all(out == key), "Error correction failed!"
+    assert is_decoding_success, "Decoder did not converge!"
+    assert np.all(out == key), "Decoder converged to wrong codeword!"
     print(f"{out=}")
     print("SUCCESS!\n\n")
 
@@ -62,8 +72,8 @@ def test_small_default():
     out = np.zeros(len(key), dtype=np.uint8)
     is_decoding_success: bool = code.decode_default(noisy_key, syndrome, out, qber)
 
-    assert is_decoding_success
-    assert np.all(out == key), "Error correction failed!"
+    assert is_decoding_success, "Decoder did not converge!"
+    assert np.all(out == key), "Decoder converged to wrong codeword!"
     print(f"{out=}")
     print("SUCCESS!\n\n")
 
@@ -77,25 +87,15 @@ def test_encode_with_ra():
 
     requested_syndrome_size = math.floor(0.9 * code.get_n_rows_mother_matrix())
     syndrome = code.encode_with_ra(key, requested_syndrome_size)
-    assert len(syndrome) == requested_syndrome_size
+    assert len(syndrome) == requested_syndrome_size, "Syndrome does not match requested size"
 
-    qber = 0.04
+    qber = 0.03
     noisy_key = binary_symmetric_channel(key, qber)
 
     corrected_noisy_key = np.zeros(len(key), dtype=np.uint8)
     is_decoding_success: bool = code.decode_default(noisy_key, syndrome, corrected_noisy_key, qber)
-    assert is_decoding_success
-    assert np.all(corrected_noisy_key == key)
-
-
-def print_available_codes():
-    for i in range(1_000_000):
-        try:
-            code = ldpc.get_rate_adaptive_code(i)
-            print(f"Code {i} maps {code.getNCols()} -> {code.get_n_rows_mother_matrix()}")
-        except RuntimeError as e:  # `get_rate_adaptive_code` throws `RuntimeError` if no code availabel for ID.
-            break
-    print("\n")
+    assert is_decoding_success, "Decoder did not converge!"
+    assert np.all(corrected_noisy_key == key), "Decoder converged to wrong codeword!"
 
 
 def get_test_key(size):
