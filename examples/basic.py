@@ -1,5 +1,5 @@
 import warnings
-
+import math
 import numpy as np
 import py_ldpc4qkd as ldpc
 
@@ -66,6 +66,26 @@ def test_small_default():
     assert np.all(out == key), "Error correction failed!"
     print(f"{out=}")
     print("SUCCESS!\n\n")
+
+
+def test_encode_with_ra():
+    code = ldpc.get_rate_adaptive_code(1)
+
+    print(f"Code setting without ra: {code.getNCols()} -> {code.get_n_rows_after_rate_adaption()}")
+
+    key = binary_symmetric_channel(np.zeros(code.getNCols(), dtype=np.uint8), 0.5)
+
+    requested_syndrome_size = math.floor(0.9 * code.get_n_rows_mother_matrix())
+    syndrome = code.encode_with_ra(key, requested_syndrome_size)
+    assert len(syndrome) == requested_syndrome_size
+
+    qber = 0.04
+    noisy_key = binary_symmetric_channel(key, qber)
+
+    corrected_noisy_key = np.zeros(len(key), dtype=np.uint8)
+    is_decoding_success: bool = code.decode_default(noisy_key, syndrome, corrected_noisy_key, qber)
+    assert is_decoding_success
+    assert np.all(corrected_noisy_key == key)
 
 
 def print_available_codes():
@@ -152,5 +172,5 @@ if __name__ == "__main__":
 
     test_small()
     test_small_default()
-
+    test_encode_with_ra()
     test_big()

@@ -222,7 +222,18 @@ PYBIND11_MODULE(_core, m) {
         .def(py::init<std::vector<std::vector<Idx>> ,
                          std::vector<Idx> ,
                          Idx>())
-        .def("encode_with_ra", &RateAdaptiveCode<Idx>::encode_with_ra<Bit>)
+        .def("encode_with_ra",
+        [](RateAdaptiveCode<Idx> &self,
+                const NumPyArr_u8 &in,
+                std::size_t output_syndrome_length
+            ) -> NumPyArr_u8 {
+                std::vector<Bit> in_vec = numpy_array_to_std_vector(in);
+                std::vector<Bit> out_vec;
+                self.encode_with_ra(in_vec, out_vec, output_syndrome_length);
+                return vector_to_numpy_array(out_vec); // copy result into a numpy array
+            },
+            "Compute syndrome and rate adapt to specified final syndrome size."
+        )
         .def("decode_infer_rate",
             [](RateAdaptiveCode<Idx> &self,
                 const NumPyArr_double &llrs,
