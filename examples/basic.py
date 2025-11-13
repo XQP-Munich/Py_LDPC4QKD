@@ -1,7 +1,9 @@
 import warnings
 import math
 import numpy as np
+import numpy.typing as npt
 import py_ldpc4qkd as ldpc
+from py_ldpc4qkd import (ECCodeSpec, RateAdaptiveCode)
 
 
 def hash_vector(vec):
@@ -41,8 +43,8 @@ def test_small():
     syndrome = code.encode_no_ra(key)
     print(f"{syndrome=}")
 
-    qber = 1 / 7
-    vlog = np.log((1 - qber) / qber)
+    ch_param = 1 / 7
+    vlog = np.log((1 - ch_param) / ch_param)
     llrs = np.array([vlog * (1. - 2. * noisy_bit) for noisy_bit in noisy_key], dtype=np.double)
 
     out = np.zeros(len(key), dtype=np.uint8)
@@ -68,9 +70,9 @@ def test_small_default():
     syndrome = code.encode_no_ra(key)
     print(f"{syndrome=}")
 
-    qber = 1 / 7
+    ch_param = 1 / 7
     out = np.zeros(len(key), dtype=np.uint8)
-    is_decoding_success: bool = code.decode_default(noisy_key, syndrome, out, qber)
+    is_decoding_success: bool = code.decode_default(noisy_key, syndrome, out, ch_param)
 
     assert is_decoding_success, "Decoder did not converge!"
     assert np.all(out == key), "Decoder converged to wrong codeword!"
@@ -89,11 +91,11 @@ def test_encode_with_ra():
     syndrome = code.encode_with_ra(key, requested_syndrome_size)
     assert len(syndrome) == requested_syndrome_size, "Syndrome does not match requested size"
 
-    qber = 0.03
-    noisy_key = binary_symmetric_channel(key, qber)
+    ch_param = 0.03
+    noisy_key = binary_symmetric_channel(key, ch_param)
 
     corrected_noisy_key = np.zeros(len(key), dtype=np.uint8)
-    is_decoding_success: bool = code.decode_default(noisy_key, syndrome, corrected_noisy_key, qber)
+    is_decoding_success: bool = code.decode_default(noisy_key, syndrome, corrected_noisy_key, ch_param)
     assert is_decoding_success, "Decoder did not converge!"
     assert np.all(corrected_noisy_key == key), "Decoder converged to wrong codeword!"
 
@@ -126,8 +128,10 @@ def binary_symmetric_channel(input_bits, error_probability):
 
     return output_bits.astype(np.uint8)
 
+
 def test_print_version():
     print(ldpc.__version__)
+
 
 def test_big():
     """
@@ -147,26 +151,46 @@ def test_big():
     # assert hash_vector(syndrome) == 2814594723, \
     #     "value (from C++ code) for small matrix 6144 -> 2048 and input hash 1233938212"
 
-    true_target_qber = 0.05
+    true_target_ch_param = 0.05
     for sim_idx in range(n_trials):
-        noisy_key = binary_symmetric_channel(key, true_target_qber)
+        noisy_key = binary_symmetric_channel(key, true_target_ch_param)
         # print(f"{hash_vector(noisy_key)=}")
         # print(f"errors: {len(noisy_key) - np.count_nonzero(noisy_key == key)} "
         #       f"({(len(noisy_key) - np.count_nonzero(noisy_key == key)) / len(noisy_key):.2%})")
         if sim_idx % (3_000_000 // code.getNCols()) == 1:
-            print(f"\rSimulating frame error rate at BSC({true_target_qber:.2%}) ({sim_idx} / {n_trials}, "
+            print(f"\rSimulating frame error rate at BSC({true_target_ch_param:.2%}) ({sim_idx} / {n_trials}, "
                   f"current FER ~ {n_failures / sim_idx:.2E})", end="")
-        estim_qber = 0.05
+        estim_ch_param = 0.05
         corrected_noisy_key = np.zeros(len(key), dtype=np.uint8)
-        is_decoding_success: bool = code.decode_default(noisy_key, syndrome, corrected_noisy_key, estim_qber)
+        is_decoding_success: bool = code.decode_default(noisy_key, syndrome, corrected_noisy_key, estim_ch_param)
         if not np.all(key == corrected_noisy_key):
             n_failures += 1
             if is_decoding_success:
                 print("Reported decoding success despite incorrect result! (this should be very rare!)")
         elif not is_decoding_success:
             print("Reported decoding failure despite CORRECT RESULT. (This has to be a bug!)")
-    print(f"\rSimulation done. Did {n_trials=} and {n_failures=} on BSC({true_target_qber:.2%}). "
+    print(f"\rSimulation done. Did {n_trials=} and {n_failures=} on BSC({true_target_ch_param:.2%}). "
           f"FER ~ {n_failures / n_trials:.2E}")
+
+
+def test_with_block_splitting(ch_param = 0.049):
+    ecc_code_spec = ldpc.ECCodeSpec.select_suitable(ch_param_estimate=ch_param)
+
+    code = ecc_code_spec.get_corresponding_code()
+
+    print(f"Code setting without ra: {code.getNCols()} -> {code.get_n_rows_after_rate_adaption()}")
+
+    block_size = 2 * code.getNCols() + 11
+    key = binary_symmetric_channel(np.zeros(block_size, dtype=np.uint8), 0.5)
+
+    syndrome = ldpc.compute_syndrome_all_blocks(key, ecc_code_spec)
+
+    noisy_key = binary_symmetric_channel(key, ch_param)
+    lrate = len(syndrome) / len(noisy_key)
+    f = lrate / ldpc.binary_entropy(ch_param)
+    print(f"Correcting {len(noisy_key)} bits using full syndrome {len(syndrome)}, {lrate=}. {f=}")
+    corrected_noisy_key = ldpc.decode_all_blocks(noisy_key, syndrome, ecc_code_spec, ch_param)
+    assert np.all(corrected_noisy_key == key), "Decoder converged to wrong codeword!"
 
 
 if __name__ == "__main__":
@@ -176,3 +200,5 @@ if __name__ == "__main__":
     test_small_default()
     test_encode_with_ra()
     test_big()
+
+    [test_with_block_splitting(q) for q in (0.02, 0.049, 0.06)]
