@@ -5,6 +5,7 @@ import numpy.typing as npt
 import py_ldpc4qkd as ldpc
 from py_ldpc4qkd import (ECCodeSpec, RateAdaptiveCode)
 
+np.random.seed(42)
 
 def hash_vector(vec):
     """
@@ -188,7 +189,7 @@ def test_with_block_splitting(ch_param = 0.049):
     noisy_key = binary_symmetric_channel(key, ch_param)
     lrate = len(syndrome) / len(noisy_key)
     f = lrate / ldpc.binary_entropy(ch_param)
-    print(f"Correcting {len(noisy_key)} bits using full syndrome {len(syndrome)}, {lrate=}. {f=}")
+    print(f"Correcting {len(noisy_key)} bits using full syndrome {len(syndrome)}, {lrate=:.3f}. {ch_param=}. {f=:.3f}")
     corrected_noisy_key = ldpc.decode_all_blocks(noisy_key, syndrome, ecc_code_spec, ch_param)
     assert np.all(corrected_noisy_key == key), "Decoder converged to wrong codeword!"
 
@@ -199,6 +200,8 @@ if __name__ == "__main__":
     test_small()
     test_small_default()
     test_encode_with_ra()
-    test_big()
 
-    [test_with_block_splitting(q) for q in (0.02, 0.049, 0.06)]
+    for _ in range(10):
+        [test_with_block_splitting(q / 1000) for q in range(5, 90, 10)]
+
+    test_big()

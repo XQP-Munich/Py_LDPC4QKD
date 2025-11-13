@@ -60,19 +60,19 @@ class ECCodeSpec:
             raise ValueError("ch_param_estimate estimate must be > 0")
         elif ch_param_estimate < 0.01:
             code_id = 1
-            f = 2
+            f = 6
         elif ch_param_estimate < 0.04:
             code_id = 1
-            f = 1.3
+            f = 3
         elif ch_param_estimate < 0.049:
             code_id = 1
-            f = 100
-        elif ch_param_estimate < 0.08:
-            code_id = 1
-            f = 2
-        elif ch_param_estimate < 0.1:
+            f = 20
+        elif ch_param_estimate < 0.07:
             code_id = 4
-            f = 1.2
+            f = 20
+        elif ch_param_estimate < 0.092:
+            code_id = 4
+            f = 2
         else:
             raise NotImplementedError("No available code is suitable for requested parameters!")
 
