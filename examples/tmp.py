@@ -4,6 +4,7 @@ print("hello world")
 print(ldpc.__version__)
 
 import numpy as np
+
 print(np.__version__)
 
 
@@ -15,3 +16,7 @@ def print_available_codes():
         except RuntimeError as e:  # `get_rate_adaptive_code` throws `RuntimeError` if no code availabel for ID.
             break
     print("\n")
+
+
+if __name__ == "__main__":
+    print_available_codes()
