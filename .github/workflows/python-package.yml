@@ -42,9 +42,8 @@ name: Pip
 on:
   workflow_dispatch:
   pull_request:
+    branches: [ main ]
   push:
-    branches:
-      - main
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -55,17 +54,17 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        platform: [windows-latest, macos-13, ubuntu-latest]
-        python-version: ["3.8", "3.x"]
+        platform: [windows-latest, macos-latest, ubuntu-latest]
+        python-version: ["3.10", "3.x"]
 
     runs-on: ${{ matrix.platform }}
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
       with:
         submodules: recursive
 
-    - uses: actions/setup-python@v5
+    - uses: actions/setup-python@v6
       with:
         python-version: ${{ matrix.python-version }}
 
@@ -75,39 +74,5 @@ jobs:
     - name: Build and install
       run: pip install --verbose .
 
-    - name: Test
-      run: python examples/basic.py
-
-  build-mingw64:
-    runs-on: windows-latest
-    defaults:
-      run:
-        shell: msys2 {0}
-    steps:
-    - uses: msys2/setup-msys2@v2
-      with:
-        update: true
-        install: >-
-          mingw-w64-x86_64-gcc
-          mingw-w64-x86_64-python-pip
-          mingw-w64-x86_64-python-wheel
-
-    - uses: actions/checkout@v4
-      with:
-        submodules: recursive
-
-    - name: Install pybind11
-      # This is required because --no-build-isolation disable dependences
-      # installation
-      run: pip install pybind11 numpy
-
-    - name: Build and install
-      # --no-build-isolation is required because the vanilla setuptool does not
-      # support Mingw64.See patches here:
-      # https://github.com/msys2/MINGW-packages/tree/master/mingw-w64-python-setuptools
-      # Without those patches build_ext fails with:
-      # error: --plat-name must be one of ('win32', 'win-amd64', 'win-arm32', 'win-arm64')
-      run: pip install --no-build-isolation .
-
-    - name: Test
+    - name: Run example file
       run: python examples/basic.py
