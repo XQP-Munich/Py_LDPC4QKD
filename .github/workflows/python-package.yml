@@ -74,6 +74,9 @@ jobs:
     - name: Build and install
       run: pip install --verbose .
 
+    - name: TEMPORARY Run hello world, to see if python is broken
+      run: python examples/tmp.py
+
     - name: Run example file
       run: python examples/basic.py
 
