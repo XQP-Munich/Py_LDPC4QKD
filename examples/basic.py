@@ -126,6 +126,8 @@ def binary_symmetric_channel(input_bits, error_probability):
 
     return output_bits.astype(np.uint8)
 
+def test_print_version():
+    print(ldpc.__version__)
 
 def test_big():
     """
