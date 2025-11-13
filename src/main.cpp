@@ -260,9 +260,9 @@ PYBIND11_MODULE(_core, m) {
                 const NumPyArr_u8 &noisy_key,
                 const NumPyArr_u8 &syndrome,
                 NumPyArr_u8 &out,
-                double qber_estimate
+                double ch_param_estimate
             ) -> bool {
-                auto llrs_vec = LDPC4QKD::llrs_bsc(numpy_array_to_std_vector(noisy_key), qber_estimate);
+                auto llrs_vec = LDPC4QKD::llrs_bsc(numpy_array_to_std_vector(noisy_key), ch_param_estimate);
                 auto syndrome_vec = numpy_array_to_std_vector(syndrome);
 
                 std::vector<Bit> out_vec;
@@ -289,7 +289,17 @@ PYBIND11_MODULE(_core, m) {
             "Compute syndrome without rate adaption.")
         // functions that get/set parameters of the codec object.
         .def("set_rate", &RateAdaptiveCode<Idx>::set_rate, "single integer argument: number of rate adaption steps")
-        .def("encode_at_current_rate", &RateAdaptiveCode<Idx>::encode_at_current_rate<Bit, Bit>)
+        .def("encode_at_current_rate",
+            [](RateAdaptiveCode<Idx> &self,
+                const NumPyArr_u8 &in
+            ) -> NumPyArr_u8 {
+                std::vector<Bit> in_vec = numpy_array_to_std_vector(in);
+                std::vector<Bit> out_vec;
+                self.encode_at_current_rate(in_vec, out_vec);
+                return vector_to_numpy_array(out_vec); // copy result into a numpy array
+            },
+            "Compute syndrome for current rate adaption."
+        )
         .def("getPosCheckn", &RateAdaptiveCode<Idx>::getPosCheckn)
         .def("getPosVarn", &RateAdaptiveCode<Idx>::getPosVarn)
         .def("get_n_rows_mother_matrix", &RateAdaptiveCode<Idx>::get_n_rows_mother_matrix)
