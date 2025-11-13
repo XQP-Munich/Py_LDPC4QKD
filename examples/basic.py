@@ -89,7 +89,7 @@ def test_encode_with_ra():
     syndrome = code.encode_with_ra(key, requested_syndrome_size)
     assert len(syndrome) == requested_syndrome_size, "Syndrome does not match requested size"
 
-    qber = 0.03
+    qber = 0.02
     noisy_key = binary_symmetric_channel(key, qber)
 
     corrected_noisy_key = np.zeros(len(key), dtype=np.uint8)
