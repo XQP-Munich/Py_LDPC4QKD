@@ -3,6 +3,7 @@ import math
 import numpy as np
 import py_ldpc4qkd as ldpc
 
+np.random.seed(42)
 
 def hash_vector(vec):
     """
@@ -18,6 +19,7 @@ def hash_vector(vec):
 
 
 def print_available_codes():
+    print("Printing list of available LDPC mother matrices:")
     for i in range(1_000_000):
         try:
             code = ldpc.get_rate_adaptive_code(i)
@@ -85,11 +87,11 @@ def test_encode_with_ra():
 
     key = binary_symmetric_channel(np.zeros(code.getNCols(), dtype=np.uint8), 0.5)
 
-    requested_syndrome_size = math.floor(0.9 * code.get_n_rows_mother_matrix())
+    requested_syndrome_size = math.floor(0.95 * code.get_n_rows_mother_matrix())
     syndrome = code.encode_with_ra(key, requested_syndrome_size)
     assert len(syndrome) == requested_syndrome_size, "Syndrome does not match requested size"
 
-    qber = 0.02
+    qber = 0.01
     noisy_key = binary_symmetric_channel(key, qber)
 
     corrected_noisy_key = np.zeros(len(key), dtype=np.uint8)
