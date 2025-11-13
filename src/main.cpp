@@ -288,7 +288,7 @@ PYBIND11_MODULE(_core, m) {
             },
             "Compute syndrome without rate adaption.")
         // functions that get/set parameters of the codec object.
-        .def("set_rate", &RateAdaptiveCode<Idx>::set_rate)
+        .def("set_rate", &RateAdaptiveCode<Idx>::set_rate, "single integer argument: number of rate adaption steps")
         .def("encode_at_current_rate", &RateAdaptiveCode<Idx>::encode_at_current_rate<Bit, Bit>)
         .def("getPosCheckn", &RateAdaptiveCode<Idx>::getPosCheckn)
         .def("getPosVarn", &RateAdaptiveCode<Idx>::getPosVarn)
