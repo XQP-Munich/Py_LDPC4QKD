@@ -58,31 +58,30 @@ class ECCodeSpec:
         ECC_TYPE = "QC-LDPC Protograph-specific-XOR"
         if ch_param_estimate <= 0:
             raise ValueError("ch_param_estimate estimate must be > 0")
-        elif ch_param_estimate < 0.05:
-            code_id = 1
-            f = 10
         elif ch_param_estimate < 0.01:
             code_id = 1
-            f = 5
+            target_lrate = 1 / 6
         elif ch_param_estimate < 0.03:
             code_id = 1
             f = 3
+            target_lrate = f * binary_entropy(ch_param_estimate)
         elif ch_param_estimate < 0.049:
             code_id = 1
-            f = 2
+            f = 1.8
+            target_lrate = f * binary_entropy(ch_param_estimate)
         elif ch_param_estimate < 0.07:
             code_id = 4
-            f = 3
+            f = 1.7
+            target_lrate = f * binary_entropy(ch_param_estimate)
         elif ch_param_estimate < 0.092:
             code_id = 4
-            f = 2
+            f = 1.3
+            target_lrate = f * binary_entropy(ch_param_estimate)
         else:
             raise NotImplementedError(f"No available code is suitable for requested parameters: {ch_param_estimate=}!")
 
         code: RateAdaptiveCode = get_rate_adaptive_code(code_id)
-
-        syndrome_bits_per_block = min(code.get_n_rows_mother_matrix(),
-                                      math.floor(code.getNCols() * binary_entropy(ch_param_estimate) * f))
+        syndrome_bits_per_block = min(code.get_n_rows_mother_matrix(), math.floor(code.getNCols() * target_lrate))
 
         return cls(
             ecc_id=code_id,

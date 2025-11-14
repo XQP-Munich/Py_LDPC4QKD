@@ -186,7 +186,7 @@ def test_with_block_splitting(ch_param = 0.049):
     noisy_key = binary_symmetric_channel(key, ch_param)
     lrate = len(syndrome) / len(noisy_key)
     f = lrate / ldpc.binary_entropy(ch_param)
-    print(f"Correcting {len(noisy_key)} bits using full syndrome {len(syndrome)}, {lrate=:.3f}. {ch_param=}. {f=:.3f}")
+    print(f"Correcting {len(noisy_key)} bits using full syndrome {len(syndrome)}, {lrate=:.4f}. {ch_param=}. {f=:.3f}")
     corrected_noisy_key = ldpc.decode_all_blocks(noisy_key, syndrome, ecc_code_spec, ch_param)
     assert np.all(corrected_noisy_key == key), "Decoder converged to wrong codeword!"
 
