@@ -58,23 +58,26 @@ class ECCodeSpec:
         ECC_TYPE = "QC-LDPC Protograph-specific-XOR"
         if ch_param_estimate <= 0:
             raise ValueError("ch_param_estimate estimate must be > 0")
+        elif ch_param_estimate < 0.05:
+            code_id = 1
+            f = 10
         elif ch_param_estimate < 0.01:
             code_id = 1
-            f = 6
-        elif ch_param_estimate < 0.04:
+            f = 5
+        elif ch_param_estimate < 0.03:
             code_id = 1
             f = 3
         elif ch_param_estimate < 0.049:
             code_id = 1
-            f = 20
+            f = 2
         elif ch_param_estimate < 0.07:
             code_id = 4
-            f = 20
+            f = 3
         elif ch_param_estimate < 0.092:
             code_id = 4
             f = 2
         else:
-            raise NotImplementedError("No available code is suitable for requested parameters!")
+            raise NotImplementedError(f"No available code is suitable for requested parameters: {ch_param_estimate=}!")
 
         code: RateAdaptiveCode = get_rate_adaptive_code(code_id)
 
