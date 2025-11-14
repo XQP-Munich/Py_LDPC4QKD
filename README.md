@@ -1,4 +1,5 @@
 # Python bindings for LDPC4QKD
+[![Pip](https://github.com/XQP-Munich/Py_LDPC4QKD/actions/workflows/python-package.yml/badge.svg)](https://github.com/XQP-Munich/Py_LDPC4QKD/actions/workflows/python-package.yml)
 
 Minimal and yet incomplete Python wrapper for [LDPC4QKD](https://github.com/XQP-Munich/LDPC4QKD).
 
