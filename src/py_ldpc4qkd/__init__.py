@@ -47,12 +47,13 @@ class ECCodeSpec:
         return cls(**data)
 
     @classmethod
-    def select_suitable(cls, ch_param_estimate, ) -> ECCodeSpec:
+    def select_suitable(cls, ch_param_estimate, input_block_size=None) -> ECCodeSpec:
         """
         Selects an LDPC code and rate adaption based on requirements.
         This could be improved a lot by taking into account more information,
             such as estimate uncertainty, or requirements about FER, or block size requirements.
         :param ch_param_estimate: estimated parameter of binary symmetric channel
+        :param input_block_size: size of input block
         :return: chosen ECCodeSpec
         """
         ECC_TYPE = "QC-LDPC Protograph-specific-XOR"
@@ -78,10 +79,16 @@ class ECCodeSpec:
             f = 1.3
             target_lrate = f * binary_entropy(ch_param_estimate)
         else:
-            raise NotImplementedError(f"No available code is suitable for requested parameters: {ch_param_estimate=}!")
+            raise NotImplementedError(
+                f"Found no suitable code: Outside supported QBER range. {ch_param_estimate=}, {input_block_size=}.")
 
         code: RateAdaptiveCode = get_rate_adaptive_code(code_id)
         syndrome_bits_per_block = min(code.get_n_rows_mother_matrix(), math.floor(code.getNCols() * target_lrate))
+
+        if input_block_size is not None:
+            if input_block_size < code.getNCols():
+                raise NotImplementedError(
+                    f"Found no suitable code: input_block_size < code.getNCols(). {ch_param_estimate=}, {input_block_size=}.")
 
         return cls(
             ecc_id=code_id,
@@ -110,6 +117,13 @@ class ECCodeSpec:
 def compute_syndrome_all_blocks(
         full_key: npt.NDArray[np.uint8],
         ecc_code_spec: ECCodeSpec) -> npt.NDArray[np.uint8]:
+    """
+    Split the key into blocks of the size that the code expects.
+    Compute the syndrome of each block. Append leftover key bits at the end.
+    :param full_key: 1-D array of bits
+    :param ecc_code_spec: specification of an LDPC code
+    :return: concatenated syndromes (1-D array of bits)
+    """
     code = ecc_code_spec.get_corresponding_code()
     # Split the key into error-correction-blocks. Add left-overs at the end of the syndrome.
     single_ecc_block_size = code.getNCols()
@@ -133,6 +147,16 @@ def compute_syndrome_all_blocks(
 
 def decode_all_blocks(full_noisy_key: npt.NDArray[np.uint8], full_syndrome: npt.NDArray[np.uint8],
                       ecc_code_spec: ECCodeSpec, ch_param_estimate: float) -> npt.NDArray[np.uint8]:
+    """
+    Split the key and the syndrome into blocks of the sizes that the code expects.
+    Perform error correction.
+    Assign leftover bits in the error-corrected key to left-over syndrome bits (see `compute_syndrome_all_blocks`).
+    :param full_noisy_key: 1-D array of bits
+    :param full_syndrome:  1-D array of bits
+    :param ecc_code_spec: specification of an LDPC code
+    :param ch_param_estimate: estimated bit error rate. Used to initialize decoding algorithm. Need not be very precise.
+    :return: full error-corrected key. 1-D array of bits of same size as `full_noisy_key`.
+    """
     code: RateAdaptiveCode = ecc_code_spec.get_corresponding_code()
 
     # Split the key into error-correction-blocks. Add left-overs at the end.
