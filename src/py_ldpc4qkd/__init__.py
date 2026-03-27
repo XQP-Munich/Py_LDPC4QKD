@@ -173,7 +173,8 @@ def decode_all_blocks(full_noisy_key: npt.NDArray[np.uint8], full_syndrome: npt.
             current_noisy_key_block, current_syndrome_block, error_corrected_key_block, ch_param_estimate)
 
         if not is_decoding_success:
-            raise ValueError("LDPC decoder did not converge. Is the ch_param estimate too small?")
+            raise ValueError(f"Frame error: LDPC decoder did not converge. Is the {ch_param_estimate=} too small? "
+                    "(This can always happen but should happen very rarely for correctly chosen parameters).")
         full_error_corrected_key[
             i * single_ecc_block_size:(i + 1) * single_ecc_block_size] = error_corrected_key_block
 
