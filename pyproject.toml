@@ -13,6 +13,10 @@ authors = [
   { name = "Elsa Dupraz" },
 ]
 requires-python = ">=3.7"
+dependencies = [
+  "numpy",
+  "packaging",
+]
 classifiers = [
   "Development Status :: 4 - Beta",
   "License :: OSI Approved :: MIT License",

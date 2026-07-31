@@ -2,10 +2,12 @@ from __future__ import annotations
 
 from ._core import *
 
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass, asdict, field
 from importlib.metadata import version, PackageNotFoundError
+from packaging.version import Version, InvalidVersion
 
 import math
+import warnings
 import numpy as np
 import numpy.typing as npt
 
@@ -27,6 +29,9 @@ def binary_entropy(p: float) -> float:
         return -p * math.log(p, 2) - (1 - p) * math.log(1 - p, 2)
 
 
+DEFAULT_INPUT_BLOCK_SIZE = 819200
+
+
 @dataclass
 class ECCodeSpec:
     """
@@ -37,64 +42,57 @@ class ECCodeSpec:
     ldpc_block_size: int
     syndrome_bits_per_block: int
     ecc_type: str
+    # Version of this library that produced the spec.
+    ldpc4qkd_version: str = field(default_factory=lambda: __version__)
 
     def to_dict(self) -> dict:
-        metadata = {"ldpc4qkd_version": __version__}
-        return asdict(self) | metadata
+        return asdict(self)
 
     @classmethod
     def from_dict(cls, data: dict) -> "ECCodeSpec":
+        stored_version = data.get("ldpc4qkd_version")
+        if stored_version is not None:
+            try:
+                is_newer = Version(stored_version) > Version(__version__)
+            except InvalidVersion:
+                warnings.warn(
+                    f"Could not compare ECCodeSpec version ({stored_version!r}) against the running "
+                    f"version ({__version__!r}); skipping compatibility check.",
+                    stacklevel=2,
+                )
+            else:
+                if is_newer:
+                    warnings.warn(
+                        f"Loading ECCodeSpec created by a newer version of py_ldpc4qkd ({stored_version}) "
+                        f"than the one currently running ({__version__}). Loaded data may be incompatible.",
+                        stacklevel=2,
+                    )
         return cls(**data)
 
     @classmethod
-    def select_suitable(cls, ch_param_estimate, input_block_size=None) -> ECCodeSpec:
+    def select_suitable(cls, ch_param_estimate, input_block_size=DEFAULT_INPUT_BLOCK_SIZE) -> ECCodeSpec:
         """
         Selects an LDPC code and rate adaption based on requirements.
-        This could be improved a lot by taking into account more information,
-            such as estimate uncertainty, or requirements about FER, or block size requirements.
+        Actual selection is done in C++.
+        This could be improved further by taking into account more information,
+            such as estimate uncertainty, or requirements about FER.
         :param ch_param_estimate: estimated parameter of binary symmetric channel
-        :param input_block_size: size of input block
+        :param input_block_size: size of input block. `None` uses the default (DEFAULT_INPUT_BLOCK_SIZE).
         :return: chosen ECCodeSpec
         """
-        ECC_TYPE = "QC-LDPC Protograph-specific-XOR"
-        if ch_param_estimate <= 0:
-            raise ValueError("ch_param_estimate estimate must be > 0")
-        elif ch_param_estimate < 0.01:
-            code_id = 1
-            target_lrate = 1 / 6
-        elif ch_param_estimate < 0.03:
-            code_id = 1
-            f = 3
-            target_lrate = f * binary_entropy(ch_param_estimate)
-        elif ch_param_estimate < 0.049:
-            code_id = 1
-            f = 1.8
-            target_lrate = f * binary_entropy(ch_param_estimate)
-        elif ch_param_estimate < 0.07:
-            code_id = 4
-            f = 1.7
-            target_lrate = f * binary_entropy(ch_param_estimate)
-        elif ch_param_estimate < 0.092:
-            code_id = 4
-            f = 1.3
-            target_lrate = f * binary_entropy(ch_param_estimate)
-        else:
+        if input_block_size is None:
+            input_block_size = DEFAULT_INPUT_BLOCK_SIZE
+
+        choice = select_suitable_code(ch_param_estimate, input_block_size)
+        if choice is None:
             raise NotImplementedError(
-                f"Found no suitable code: Outside supported QBER range. {ch_param_estimate=}, {input_block_size=}.")
-
-        code: RateAdaptiveCode = get_rate_adaptive_code(code_id)
-        syndrome_bits_per_block = min(code.get_n_rows_mother_matrix(), math.floor(code.getNCols() * target_lrate))
-
-        if input_block_size is not None:
-            if input_block_size < code.getNCols():
-                raise NotImplementedError(
-                    f"Found no suitable code: input_block_size < code.getNCols(). {ch_param_estimate=}, {input_block_size=}.")
+                f"Found no suitable code for given parameters. {ch_param_estimate=}, {input_block_size=}.")
 
         return cls(
-            ecc_id=code_id,
-            ldpc_block_size=code.getNCols(),
-            syndrome_bits_per_block=syndrome_bits_per_block,
-            ecc_type=ECC_TYPE,
+            ecc_id=choice.code_id,
+            ldpc_block_size=choice.ldpc_block_size,
+            syndrome_bits_per_block=choice.syndrome_bits_per_block,
+            ecc_type=choice.ecc_type,
         )
 
     def get_corresponding_code(self) -> RateAdaptiveCode:

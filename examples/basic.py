@@ -6,6 +6,21 @@ import py_ldpc4qkd as ldpc
 
 np.random.seed(42)
 
+
+def get_code_small():
+    """
+    We use this matrix as an example:
+       H =  [1 0 1 0 1 0 1
+             0 1 1 0 0 1 1
+             0 0 0 1 1 1 1]
+
+    To use it, we must convert H to compressed sparse column (CSC) storage.
+    """
+    colptr = [0, 1, 2, 4, 5, 7, 9, 12]
+    row_idx = [0, 1, 0, 1, 2, 0, 2, 1, 2, 0, 1, 2]
+    return ldpc.RateAdaptiveCode(colptr, row_idx)
+
+
 def hash_vector(vec):
     """
      * This is only used for the tests to verify agreement between vectors.
@@ -23,7 +38,7 @@ def test_small():
     """
     How to use LDPC code with all manual settings
     """
-    code = ldpc.get_code_small()
+    code = get_code_small()
 
     key = np.array([1, 1, 1, 1, 0, 0, 0], dtype=np.uint8)
     print(f"{key=}")
@@ -50,7 +65,7 @@ def test_small_default():
     """
     How to use LDPC code with default settings
     """
-    code = ldpc.get_code_small()
+    code = get_code_small()
 
     key = np.array([1, 1, 1, 1, 0, 0, 0], dtype=np.uint8)
     print(f"{key=}")
@@ -130,47 +145,49 @@ def binary_symmetric_channel(input_bits, error_probability):
     return output_bits.astype(np.uint8)
 
 
+def h2inv(target_entropy, lo=1e-6, hi=0.5):
+    """Bisection inverse of ldpc.binary_entropy, for p in (0, 0.5)."""
+    for _ in range(40):
+        mid = (lo + hi) / 2
+        if ldpc.binary_entropy(mid) < target_entropy:
+            lo = mid
+        else:
+            hi = mid
+    return (lo + hi) / 2
+
+
 def test_print_version():
     print(ldpc.__version__)
 
 
-def test_big(code_id):
+def test_big(code_id, n_trials=20, safety_margin=1.3):
     """
-    Very very crude frame error rate simulation
+    Very very crude frame error rate simulation.
+    Targets a QBER derived from this code's own (mother) rate via h2inv (with a safety margin).
     """
     code = ldpc.get_rate_adaptive_code(code_id)
 
-    n_trials = 100
     n_failures = 0
 
     print(f"{code.getNCols()} -> {code.get_n_rows_after_rate_adaption()}")
 
+    rate = code.get_n_rows_mother_matrix() / code.getNCols()
+    true_target_qber = h2inv(rate / safety_margin)
+
     key = binary_symmetric_channel(np.zeros(code.getNCols(), dtype=np.uint8), 0.5)
-    # print(f"{hash_vector(key)=}")
-
     syndrome = code.encode_no_ra(key)
-    # assert hash_vector(syndrome) == 2814594723, \
-    #     "value (from C++ code) for small matrix 6144 -> 2048 and input hash 1233938212"
 
-    true_target_qber = 0.05
-    for sim_idx in range(n_trials):
+    for _ in range(n_trials):
         noisy_key = binary_symmetric_channel(key, true_target_qber)
-        # print(f"{hash_vector(noisy_key)=}")
-        # print(f"errors: {len(noisy_key) - np.count_nonzero(noisy_key == key)} "
-        #       f"({(len(noisy_key) - np.count_nonzero(noisy_key == key)) / len(noisy_key):.2%})")
-        if sim_idx % (3_000_000 // code.getNCols()) == 1:
-            print(f"\rSimulating frame error rate at BSC({true_target_qber:.2%}) ({sim_idx} / {n_trials}, "
-                  f"current FER ~ {n_failures / sim_idx:.2E})", end="")
-        estim_qber = 0.05
         corrected_noisy_key = np.zeros(len(key), dtype=np.uint8)
-        is_decoding_success: bool = code.decode_default(noisy_key, syndrome, corrected_noisy_key, estim_qber)
+        is_decoding_success: bool = code.decode_default(noisy_key, syndrome, corrected_noisy_key, true_target_qber)
         if not np.all(key == corrected_noisy_key):
             n_failures += 1
             if is_decoding_success:
                 print("Reported decoding success despite incorrect result! (this should be very rare!)")
         elif not is_decoding_success:
             print("Reported decoding failure despite CORRECT RESULT. (This has to be a bug!)")
-    print(f"\rSimulation done. Did {n_trials=} and {n_failures=} on BSC({true_target_qber:.2%}). "
+    print(f"Simulation done. Did {n_trials=} and {n_failures=} on BSC({true_target_qber:.2%}). "
           f"FER ~ {n_failures / n_trials:.2E}")
 
 
@@ -194,6 +211,36 @@ def test_with_block_splitting(ch_param=0.049):
     assert np.all(corrected_noisy_key == key), "Decoder converged to wrong codeword!"
 
 
+def test_819k_default_fer(qbers=None, n_trials=100):
+    """
+    Estimates FER (like test_big: single block, no block splitting) for whichever 819k code
+    ECCodeSpec.select_suitable picks by default at each QBER, using code.decode_default -- the
+    same decode path (and iteration budget) real callers get, not a hand-tuned one.
+    """
+    if qbers is None:
+        qbers = [q / 1000 for q in range(5, 41, 5)]  # 0.005, 0.010, ..., 0.040
+
+    for qber in qbers:
+        ecc_code_spec = ldpc.ECCodeSpec.select_suitable(ch_param_estimate=qber)
+        code = ecc_code_spec.get_corresponding_code()
+        n_cols = code.getNCols()
+        rate = code.get_n_rows_after_rate_adaption() / n_cols
+
+        key = binary_symmetric_channel(np.zeros(n_cols, dtype=np.uint8), 0.5)
+        syndrome = code.encode_at_current_rate(key)
+
+        n_failures = 0
+        for _ in range(n_trials):
+            noisy_key = binary_symmetric_channel(key, qber)
+            corrected = np.zeros(n_cols, dtype=np.uint8)
+            success = code.decode_default(noisy_key, syndrome, corrected, qber)
+            if not success or not np.all(corrected == key):
+                n_failures += 1
+
+        print(f"QBER={qber:.3%} ecc_id={ecc_code_spec.ecc_id} rate={rate:.4f} "
+              f"n_trials={n_trials} n_failures={n_failures} FER~{n_failures / n_trials:.2e}")
+
+
 if __name__ == "__main__":
     test_print_version()
 
@@ -203,8 +250,14 @@ if __name__ == "__main__":
     test_small_default()
     test_encode_with_ra()
 
-    for _ in range(10):
-        [test_with_block_splitting(q / 1000) for q in range(5, 90, 10)]
+    [test_with_block_splitting(q / 1000) for q in range(5, 90, 10)]
 
+    # test_big at least once per distinct N (matrix column count)
+    # of the 819k-block codes (ids 6-14) all share N=819200, so testing each one adds no new
+    # column-size coverage, just redundant runtime.
+    first_id_for_n = {}
     for i in range(n_codes):
+        n_cols = ldpc.get_rate_adaptive_code(i).getNCols()
+        first_id_for_n.setdefault(n_cols, i)
+    for i in first_id_for_n.values():
         test_big(i)
