@@ -163,7 +163,10 @@ def test_print_version():
 def test_big(code_id, n_trials=20, safety_margin=1.3):
     """
     Very very crude frame error rate simulation.
-    Targets a QBER derived from this code's own (mother) rate via h2inv (with a safety margin).
+    Targets a QBER derived from this code's own (mother) rate via h2inv (with a safety margin),
+    instead of a fixed QBER for every code -- codes here range from rate 0.10 to 0.50, and a QBER
+    that's fine for a rate-0.5 code is far outside a rate-0.10 code's design envelope, forcing it
+    to fail (and burn its full iteration budget) on nearly every trial.
     """
     code = ldpc.get_rate_adaptive_code(code_id)
 
@@ -250,14 +253,15 @@ if __name__ == "__main__":
     test_small_default()
     test_encode_with_ra()
 
-    [test_with_block_splitting(q / 1000) for q in range(5, 90, 10)]
+    for q in range(5, 90, 10):
+        test_with_block_splitting(q / 1000)
 
-    # test_big at least once per distinct N (matrix column count)
-    # of the 819k-block codes (ids 6-14) all share N=819200, so testing each one adds no new
-    # column-size coverage, just redundant runtime.
-    first_id_for_n = {}
+    # test_big at least once per distinct N (matrix column count), not every code id.
+    # The ids 6-14 share N=819200, not testing all of them to save time.
+    tested_n_cols = set()
     for i in range(n_codes):
         n_cols = ldpc.get_rate_adaptive_code(i).getNCols()
-        first_id_for_n.setdefault(n_cols, i)
-    for i in first_id_for_n.values():
+        if n_cols in tested_n_cols:
+            continue
+        tested_n_cols.add(n_cols)
         test_big(i)
