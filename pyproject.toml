@@ -5,7 +5,7 @@ build-backend = "scikit_build_core.build"
 
 [project]
 name = "py_ldpc4qkd"
-version = "0.0.1"
+version = "0.1.0"
 description="LDPC Codes for Rate Adaptive Distributed Source Coding"
 readme = "README.md"
 authors = [
