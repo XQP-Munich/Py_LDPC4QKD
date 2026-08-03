@@ -51,7 +51,12 @@ class ECCodeSpec:
     @classmethod
     def from_dict(cls, data: dict) -> "ECCodeSpec":
         stored_version = data.get("ldpc4qkd_version")
-        if stored_version is not None:
+        if stored_version is None:
+            warnings.warn(
+                f"Error correction request: no package version specified. Skipping comparison.",
+                stacklevel=2,
+            )
+        else:
             try:
                 is_newer = Version(stored_version) > Version(__version__)
             except InvalidVersion:
@@ -118,6 +123,8 @@ def compute_syndrome_all_blocks(
     """
     Split the key into blocks of the size that the code expects.
     Compute the syndrome of each block. Append leftover key bits at the end.
+    Therefore, try to ensure that `len(full_key) // ecc_code_spec.ldpc_block_size` is small.
+
     :param full_key: 1-D array of bits
     :param ecc_code_spec: specification of an LDPC code
     :return: concatenated syndromes (1-D array of bits)
@@ -148,7 +155,9 @@ def decode_all_blocks(full_noisy_key: npt.NDArray[np.uint8], full_syndrome: npt.
     """
     Split the key and the syndrome into blocks of the sizes that the code expects.
     Perform error correction.
-    Assign leftover bits in the error-corrected key to left-over syndrome bits (see `compute_syndrome_all_blocks`).
+    Assigns leftover bits in the error-corrected key to left-over syndrome bits (see `compute_syndrome_all_blocks`).
+    Therefore, try to ensure that `len(full_noisy_key) // ecc_code_spec.ldpc_block_size` is small.
+
     :param full_noisy_key: 1-D array of bits
     :param full_syndrome:  1-D array of bits
     :param ecc_code_spec: specification of an LDPC code
@@ -176,6 +185,8 @@ def decode_all_blocks(full_noisy_key: npt.NDArray[np.uint8], full_syndrome: npt.
         full_error_corrected_key[
             i * single_ecc_block_size:(i + 1) * single_ecc_block_size] = error_corrected_key_block
 
+    # The leftover key, which does not fit in the block, is appended to the syndrome
+    # This is somewhat inefficient, TODO could use combination of code sizes
     leftover_key_size = len(full_noisy_key) % single_ecc_block_size
     full_error_corrected_key[-leftover_key_size:] = full_syndrome[-leftover_key_size:]
     assert full_error_corrected_key.shape == full_noisy_key.shape, "Error-corrected key has unexpected shape"

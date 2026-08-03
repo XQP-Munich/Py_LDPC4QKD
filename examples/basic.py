@@ -162,11 +162,9 @@ def test_print_version():
 
 def test_big(code_id, n_trials=20, safety_margin=1.3):
     """
-    Very very crude frame error rate simulation.
+    Very crude frame error rate simulation.
     Targets a QBER derived from this code's own (mother) rate via h2inv (with a safety margin),
-    instead of a fixed QBER for every code -- codes here range from rate 0.10 to 0.50, and a QBER
-    that's fine for a rate-0.5 code is far outside a rate-0.10 code's design envelope, forcing it
-    to fail (and burn its full iteration budget) on nearly every trial.
+    instead of a fixed QBER for every code.
     """
     code = ldpc.get_rate_adaptive_code(code_id)
 
@@ -217,8 +215,7 @@ def test_with_block_splitting(ch_param=0.049):
 def test_819k_default_fer(qbers=None, n_trials=100):
     """
     Estimates FER (like test_big: single block, no block splitting) for whichever 819k code
-    ECCodeSpec.select_suitable picks by default at each QBER, using code.decode_default -- the
-    same decode path (and iteration budget) real callers get, not a hand-tuned one.
+    `ECCodeSpec.select_suitable` picks by default at each QBER, using `code.decode_default`.
     """
     if qbers is None:
         qbers = [q / 1000 for q in range(5, 41, 5)]  # 0.005, 0.010, ..., 0.040
@@ -256,8 +253,8 @@ if __name__ == "__main__":
     for q in range(5, 90, 10):
         test_with_block_splitting(q / 1000)
 
-    # test_big at least once per distinct N (matrix column count), not every code id.
-    # The ids 6-14 share N=819200, not testing all of them to save time.
+    # test_big at least once per distinct N (matrix column count), but not every code id to save time.
+    # The ids 6-14 share `N=819200`.
     tested_n_cols = set()
     for i in range(n_codes):
         n_cols = ldpc.get_rate_adaptive_code(i).getNCols()
