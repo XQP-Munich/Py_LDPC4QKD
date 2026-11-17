@@ -145,7 +145,8 @@ def compute_syndrome_all_blocks(
         assert current_syndrome_block.shape == (single_syndrome_block_size,), "Unexpected syndrome shape"
         full_syndrome[i * single_syndrome_block_size: (i + 1) * single_syndrome_block_size] = current_syndrome_block
 
-    full_syndrome[-leftover_key_size:] = full_key[-leftover_key_size:]
+    if leftover_key_size > 0:
+        full_syndrome[-leftover_key_size:] = full_key[-leftover_key_size:]
     assert full_syndrome.shape == (full_syndrome_size,), "syndrome computation yielded unexpected shape"
     return full_syndrome
 
@@ -189,6 +190,7 @@ def decode_all_blocks(full_noisy_key: npt.NDArray[np.uint8], full_syndrome: npt.
     # The leftover key, which does not fit in the block, is appended to the syndrome
     # This is somewhat inefficient, TODO could use combination of code sizes
     leftover_key_size = len(full_noisy_key) % single_ecc_block_size
-    full_error_corrected_key[-leftover_key_size:] = full_syndrome[-leftover_key_size:]
+    if leftover_key_size > 0:
+        full_error_corrected_key[-leftover_key_size:] = full_syndrome[-leftover_key_size:]
     assert full_error_corrected_key.shape == full_noisy_key.shape, "Error-corrected key has unexpected shape"
     return full_error_corrected_key
