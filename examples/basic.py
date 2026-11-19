@@ -115,27 +115,6 @@ def test_encode_with_ra():
     assert np.all(corrected_noisy_key == key), "Decoder converged to wrong codeword!"
 
 
-
-def get_test_key(size):
-    pattern = [0, 0, 0, 0, 0, 0, 0, 0,
-               1, 1, 1, 1, 1, 1, 1, 1,
-               0, 0, 0, 0, 0, 0, 0, 0,
-               1, 1, 1, 1, 1, 1, 1, 1,
-               0, 0, 0, 0, 0, 0, 0, 0,
-               1, 1, 1, 1, 1, 1, 1, 1,
-               0, 0, 0, 0, 0, 0, 0, 0,
-               1, 1, 1, 1, 1, 1, 1, 1,
-               0, 0, 0, 0, 0, 0, 0, 0,
-               1, 1, 1, 1, 1, 1, 1, 1,
-               0, 0, 0, 0, 0, 0, 0, 0,
-               1, 1, 1, 1, 1, 1, 1, 1,
-               0, 0, 0, 0, 0, 0, 0, 0,
-               1, 1, 1, 1, 1, 1, 1, 1,
-               0, 0, 0, 0, 0, 0, 0, 0,
-               1, 1, 1, 1, 1, 1, 1, 1]
-    return np.concatenate((pattern, np.zeros(shape=(size - len(pattern)), dtype=np.uint8))).astype(np.uint8)
-
-
 def binary_symmetric_channel(input_bits, error_probability):
     random_values = np.random.rand(len(input_bits))
     error_mask = random_values < error_probability
@@ -212,10 +191,39 @@ def test_with_block_splitting(ch_param=0.049):
     assert np.all(corrected_noisy_key == key), "Decoder converged to wrong codeword!"
 
 
+def test_small_default_selection(input_block_sizes=(4096, 24576), qbers=None, n_frames=10):
+    """
+    Test default settings for small input blocks.
+    """
+    if qbers is None:
+        qbers = [round(0.001 + 0.002 * i, 3) for i in range(40)]
+
+    for input_block_size in input_block_sizes:
+        for qber in qbers:
+            ecc_code_spec = ldpc.ECCodeSpec.select_suitable(ch_param_estimate=qber, input_block_size=input_block_size)
+            n_cols = ecc_code_spec.get_corresponding_code().getNCols()
+
+            n_not_converged = 0  # `decode_all_blocks` raises ValueError when decoder does not converge
+            n_wrong = 0  # converged, but to the wrong key
+            for _ in range(n_frames):
+                key = binary_symmetric_channel(np.zeros(n_cols, dtype=np.uint8), 0.5)
+                syndrome = ldpc.compute_syndrome_all_blocks(key, ecc_code_spec)
+                noisy_key = binary_symmetric_channel(key, qber)
+                try:
+                    corrected = ldpc.decode_all_blocks(noisy_key, syndrome, ecc_code_spec, qber)
+                except ValueError:
+                    n_not_converged += 1
+                    continue
+                n_wrong += not np.all(corrected == key)
+
+            print(f"input_block_size={input_block_size} QBER={qber:.1%} ecc_id={ecc_code_spec.ecc_id} N={n_cols} "
+                  f"lrate={len(syndrome) / n_cols:.4f} {n_frames=} {n_not_converged=} {n_wrong=}")
+
+
 def test_819k_default_fer(qbers=None, n_trials=100):
     """
     Estimates FER (like test_big: single block, no block splitting) for whichever 819k code
-    `ECCodeSpec.select_suitable` picks by default at each QBER, using `code.decode_default`.
+    `ECCodeSpec.select_suitable` picks by default at each channel parameter.
     """
     if qbers is None:
         qbers = [q / 1000 for q in range(5, 41, 5)]  # 0.005, 0.010, ..., 0.040
@@ -252,6 +260,8 @@ if __name__ == "__main__":
 
     for q in range(5, 90, 10):
         test_with_block_splitting(q / 1000)
+
+    test_small_default_selection()
 
     # test_big at least once per distinct N (matrix column count), but not every code id to save time.
     # The ids 6-14 share `N=819200`.
