@@ -39,6 +39,7 @@ class ECCodeSpec:
     The LDPC matrix may be derived from a mother matrix by using rate adaption.
     """
     ecc_id: int
+    input_block_size: int
     ldpc_block_size: int
     syndrome_bits_per_block: int
     ecc_type: str
@@ -96,6 +97,7 @@ class ECCodeSpec:
         return cls(
             ecc_id=choice.code_id,
             ldpc_block_size=choice.ldpc_block_size,
+            input_block_size = input_block_size,
             syndrome_bits_per_block=choice.syndrome_bits_per_block,
             ecc_type=choice.ecc_type,
         )
